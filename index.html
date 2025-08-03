@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotel Night Audit Revenue Summary</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+
+        .content.dashboard-mode {
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+
+        .form-section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .visualization-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+
+        .visualization-section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+        }
+
+        .chart-wrapper {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 3px;
+        }
+
+        .stat-amount {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+            
+            .content.dashboard-mode {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏨 Hotel Night Audit Revenue Summary</h1>
+            <p>Enter your daily revenue data to generate comprehensive analytics</p>
+        </div>
+        
+        <div class="content">
+            <div class="form-section">
+                <h2>📊 Revenue Data Entry</h2>
+                <form id="revenueForm">
+                    <div class="form-group">
+                        <label for="currentDate">Current Date:</label>
+                        <input type="date" id="currentDate" name="currentDate" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="todayRevenue">Today's Room Revenue ($):</label>
+                        <input type="number" id="todayRevenue" name="todayRevenue" step="0.01" placeholder="0.00" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="monthCurrentRevenue">This Month's Current Revenue ($):</label>
+                        <input type="number" id="monthCurrentRevenue" name="monthCurrentRevenue" step="0.01" placeholder="0.00" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="lastYearMonthRevenue">Last Year Same Month Revenue ($):</label>
+                        <input type="number" id="lastYearMonthRevenue" name="lastYearMonthRevenue" step="0.01" placeholder="0.00" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="yearCurrentRevenue">This Year Current Revenue ($):</label>
+                        <input type="number" id="yearCurrentRevenue" name="yearCurrentRevenue" step="0.01" placeholder="0.00" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="lastYearCurrentRevenue">Last Year Current Revenue on This Date ($):</label>
+                        <input type="number" id="lastYearCurrentRevenue" name="lastYearCurrentRevenue" step="0.01" placeholder="0.00" required>
+                    </div>
+                    
+                    <h3 style="color: #2c3e50; margin: 30px 0 20px 0; padding-top: 20px; border-top: 2px solid #e9ecef;">📊 Accounting Revenue Data</h3>
+                    
+                    <div class="form-group">
+                        <label for="todayAccountingRevenue">Today's Accounting Revenue ($):</label>
+                        <input type="number" id="todayAccountingRevenue" name="todayAccountingRevenue" step="0.01" placeholder="0.00" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="monthCurrentAccountingRevenue">This Month's Current Accounting Revenue ($):</label>
+                        <input type="number" id="monthCurrentAccountingRevenue" name="monthCurrentAccountingRevenue" step="0.01" placeholder="0.00" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="lastYearMonthAccountingRevenue">Last Year Same Month Accounting Revenue ($):</label>
+                        <input type="number" id="lastYearMonthAccountingRevenue" name="lastYearMonthAccountingRevenue" step="0.01" placeholder="0.00" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="yearCurrentAccountingRevenue">This Year Current Accounting Revenue ($):</label>
+                        <input type="number" id="yearCurrentAccountingRevenue" name="yearCurrentAccountingRevenue" step="0.01" placeholder="0.00" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="lastYearCurrentAccountingRevenue">Last Year Current Accounting Revenue on This Date ($):</label>
+                        <input type="number" id="lastYearCurrentAccountingRevenue" name="lastYearCurrentAccountingRevenue" step="0.01" placeholder="0.00" required>
+                    </div>
+                    
+                    <button type="submit" class="btn">Generate Revenue Analysis</button>
+                </form>
+            </div>
+            
+            <div class="visualization-section hidden" id="visualizationSection">
+                <h2>🏨 Room Revenue Analytics</h2>
+                <div id="dashboardContent">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="todayRevenueDisplay">$0</div>
+                            <div class="stat-label">Today's Revenue</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="monthGrowth">0%</div>
+                            <div class="stat-amount" id="monthGrowthAmount">$0</div>
+                            <div class="stat-label">Month YoY Growth</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="yearGrowth">0%</div>
+                            <div class="stat-amount" id="yearGrowthAmount">$0</div>
+                            <div class="stat-label">Year YoY Growth</div>
+                        </div>
+                    </div>
+                    
+                    <div class="charts-container">
+                        <div class="chart-wrapper">
+                            <div class="chart-title">Monthly Revenue Comparison</div>
+                            <canvas id="monthlyChart" width="400" height="200"></canvas>
+                        </div>
+                        
+                        <div class="chart-wrapper">
+                            <div class="chart-title">Yearly Revenue Comparison</div>
+                            <canvas id="yearlyChart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="visualization-section hidden" id="accountingVisualizationSection">
+                <h2>📊 Accounting Revenue Analytics</h2>
+                <div id="accountingDashboardContent">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="todayAccountingRevenueDisplay">$0</div>
+                            <div class="stat-label">Today's Accounting Revenue</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="monthAccountingGrowth">0%</div>
+                            <div class="stat-amount" id="monthAccountingGrowthAmount">$0</div>
+                            <div class="stat-label">Month YoY Growth</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="yearAccountingGrowth">0%</div>
+                            <div class="stat-amount" id="yearAccountingGrowthAmount">$0</div>
+                            <div class="stat-label">Year YoY Growth</div>
+                        </div>
+                    </div>
+                    
+                    <div class="charts-container">
+                        <div class="chart-wrapper">
+                            <div class="chart-title">Monthly Accounting Revenue Comparison</div>
+                            <canvas id="monthlyAccountingChart" width="400" height="200"></canvas>
+                        </div>
+                        
+                        <div class="chart-wrapper">
+                            <div class="chart-title">Yearly Accounting Revenue Comparison</div>
+                            <canvas id="yearlyAccountingChart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set today's date as default
+        document.getElementById('currentDate').valueAsDate = new Date();
+        
+        let monthlyChart, yearlyChart, monthlyAccountingChart, yearlyAccountingChart;
+        
+        document.getElementById('revenueForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get form data
+            const formData = new FormData(this);
+            const data = {
+                currentDate: formData.get('currentDate'),
+                todayRevenue: parseFloat(formData.get('todayRevenue')),
+                monthCurrentRevenue: parseFloat(formData.get('monthCurrentRevenue')),
+                lastYearMonthRevenue: parseFloat(formData.get('lastYearMonthRevenue')),
+                yearCurrentRevenue: parseFloat(formData.get('yearCurrentRevenue')),
+                lastYearCurrentRevenue: parseFloat(formData.get('lastYearCurrentRevenue')),
+                todayAccountingRevenue: parseFloat(formData.get('todayAccountingRevenue')),
+                monthCurrentAccountingRevenue: parseFloat(formData.get('monthCurrentAccountingRevenue')),
+                lastYearMonthAccountingRevenue: parseFloat(formData.get('lastYearMonthAccountingRevenue')),
+                yearCurrentAccountingRevenue: parseFloat(formData.get('yearCurrentAccountingRevenue')),
+                lastYearCurrentAccountingRevenue: parseFloat(formData.get('lastYearCurrentAccountingRevenue'))
+            };
+            
+            // Calculate growth percentages and amounts for room revenue
+            const monthGrowthAmount = data.monthCurrentRevenue - data.lastYearMonthRevenue;
+            const monthGrowth = ((monthGrowthAmount) / data.lastYearMonthRevenue * 100).toFixed(1);
+            const yearGrowthAmount = data.yearCurrentRevenue - data.lastYearCurrentRevenue;
+            const yearGrowth = ((yearGrowthAmount) / data.lastYearCurrentRevenue * 100).toFixed(1);
+            
+            // Calculate growth percentages and amounts for accounting revenue
+            const monthAccountingGrowthAmount = data.monthCurrentAccountingRevenue - data.lastYearMonthAccountingRevenue;
+            const monthAccountingGrowth = ((monthAccountingGrowthAmount) / data.lastYearMonthAccountingRevenue * 100).toFixed(1);
+            const yearAccountingGrowthAmount = data.yearCurrentAccountingRevenue - data.lastYearCurrentAccountingRevenue;
+            const yearAccountingGrowth = ((yearAccountingGrowthAmount) / data.lastYearCurrentAccountingRevenue * 100).toFixed(1);
+            
+            // Update stats display
+            document.getElementById('todayRevenueDisplay').textContent = `$${data.todayRevenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            // Month growth
+            document.getElementById('monthGrowth').textContent = `${monthGrowth}%`;
+            document.getElementById('monthGrowth').style.color = monthGrowth >= 0 ? '#28a745' : '#dc3545';
+            document.getElementById('monthGrowthAmount').textContent = `${monthGrowthAmount >= 0 ? '+' : ''}$${monthGrowthAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('monthGrowthAmount').style.color = monthGrowthAmount >= 0 ? '#28a745' : '#dc3545';
+            
+            // Year growth
+            document.getElementById('yearGrowth').textContent = `${yearGrowth}%`;
+            document.getElementById('yearGrowth').style.color = yearGrowth >= 0 ? '#28a745' : '#dc3545';
+            document.getElementById('yearGrowthAmount').textContent = `${yearGrowthAmount >= 0 ? '+' : ''}$${yearGrowthAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('yearGrowthAmount').style.color = yearGrowthAmount >= 0 ? '#28a745' : '#dc3545';
+            
+            // Update accounting stats display
+            document.getElementById('todayAccountingRevenueDisplay').textContent = `$${data.todayAccountingRevenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            // Month accounting growth
+            document.getElementById('monthAccountingGrowth').textContent = `${monthAccountingGrowth}%`;
+            document.getElementById('monthAccountingGrowth').style.color = monthAccountingGrowth >= 0 ? '#28a745' : '#dc3545';
+            document.getElementById('monthAccountingGrowthAmount').textContent = `${monthAccountingGrowthAmount >= 0 ? '+' : ''}$${monthAccountingGrowthAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('monthAccountingGrowthAmount').style.color = monthAccountingGrowthAmount >= 0 ? '#28a745' : '#dc3545';
+            
+            // Year accounting growth
+            document.getElementById('yearAccountingGrowth').textContent = `${yearAccountingGrowth}%`;
+            document.getElementById('yearAccountingGrowth').style.color = yearAccountingGrowth >= 0 ? '#28a745' : '#dc3545';
+            document.getElementById('yearAccountingGrowthAmount').textContent = `${yearAccountingGrowthAmount >= 0 ? '+' : ''}$${yearAccountingGrowthAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('yearAccountingGrowthAmount').style.color = yearAccountingGrowthAmount >= 0 ? '#28a745' : '#dc3545';
+            
+            // Hide form and show dashboards
+            document.querySelector('.form-section').classList.add('hidden');
+            document.getElementById('visualizationSection').classList.remove('hidden');
+            document.getElementById('accountingVisualizationSection').classList.remove('hidden');
+            document.querySelector('.content').classList.add('dashboard-mode');
+            
+            // Create charts
+            createCharts(data);
+        });
+        
+        function createCharts(data) {
+            // Destroy existing charts if they exist
+            if (monthlyChart) monthlyChart.destroy();
+            if (yearlyChart) yearlyChart.destroy();
+            if (monthlyAccountingChart) monthlyAccountingChart.destroy();
+            if (yearlyAccountingChart) yearlyAccountingChart.destroy();
+            
+            // Monthly comparison chart
+            const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+            monthlyChart = new Chart(monthlyCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['This Month', 'Last Year Same Month'],
+                    datasets: [{
+                        label: 'Revenue ($)',
+                        data: [data.monthCurrentRevenue, data.lastYearMonthRevenue],
+                        backgroundColor: [
+                            'rgba(102, 126, 234, 0.8)',
+                            'rgba(118, 75, 162, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(102, 126, 234, 1)',
+                            'rgba(118, 75, 162, 1)'
+                        ],
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Yearly comparison chart
+            const yearlyCtx = document.getElementById('yearlyChart').getContext('2d');
+            yearlyChart = new Chart(yearlyCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Last Year to Date', 'This Year to Date'],
+                    datasets: [{
+                        label: 'Revenue ($)',
+                        data: [data.lastYearCurrentRevenue, data.yearCurrentRevenue],
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: 'rgba(102, 126, 234, 1)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Monthly accounting comparison chart
+            const monthlyAccountingCtx = document.getElementById('monthlyAccountingChart').getContext('2d');
+            monthlyAccountingChart = new Chart(monthlyAccountingCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['This Month', 'Last Year Same Month'],
+                    datasets: [{
+                        label: 'Accounting Revenue ($)',
+                        data: [data.monthCurrentAccountingRevenue, data.lastYearMonthAccountingRevenue],
+                        backgroundColor: [
+                            'rgba(40, 167, 69, 0.8)',
+                            'rgba(220, 53, 69, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(40, 167, 69, 1)',
+                            'rgba(220, 53, 69, 1)'
+                        ],
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Yearly accounting comparison chart
+            const yearlyAccountingCtx = document.getElementById('yearlyAccountingChart').getContext('2d');
+            yearlyAccountingChart = new Chart(yearlyAccountingCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Last Year to Date', 'This Year to Date'],
+                    datasets: [{
+                        label: 'Accounting Revenue ($)',
+                        data: [data.lastYearCurrentAccountingRevenue, data.yearCurrentAccountingRevenue],
+                        borderColor: 'rgba(40, 167, 69, 1)',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: 'rgba(40, 167, 69, 1)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
