@@ -16,77 +16,78 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
+            padding: 10px;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1000px;
             margin: 0 auto;
             background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
             overflow: hidden;
         }
 
         .header {
             background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
             color: white;
-            padding: 30px;
+            padding: 20px;
             text-align: center;
         }
 
         .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
+            font-size: 2rem;
+            margin-bottom: 8px;
         }
 
         .header p {
-            font-size: 1.1rem;
+            font-size: 1rem;
             opacity: 0.9;
         }
 
         .content {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 30px;
-            padding: 30px;
+            gap: 20px;
+            padding: 20px;
         }
 
         .content.dashboard-mode {
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            gap: 15px;
         }
 
         .form-section {
             background: #f8f9fa;
-            padding: 25px;
-            border-radius: 10px;
+            padding: 18px;
+            border-radius: 8px;
             border: 1px solid #e9ecef;
         }
 
         .form-section h2 {
             color: #2c3e50;
-            margin-bottom: 20px;
-            font-size: 1.5rem;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         .form-group label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             font-weight: 600;
             color: #495057;
+            font-size: 0.9rem;
         }
 
         .form-group input {
             width: 100%;
-            padding: 12px 15px;
+            padding: 10px 12px;
             border: 2px solid #e9ecef;
-            border-radius: 8px;
-            font-size: 1rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
             transition: border-color 0.3s ease;
         }
 
@@ -99,10 +100,10 @@
         .btn {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 15px 30px;
+            padding: 12px 24px;
             border: none;
-            border-radius: 8px;
-            font-size: 1.1rem;
+            border-radius: 6px;
+            font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -111,73 +112,73 @@
 
         .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
         }
 
         .visualization-section {
             background: #f8f9fa;
-            padding: 25px;
-            border-radius: 10px;
+            padding: 18px;
+            border-radius: 8px;
             border: 1px solid #e9ecef;
         }
 
         .visualization-section h2 {
             color: #2c3e50;
-            margin-bottom: 20px;
-            font-size: 1.5rem;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
         }
 
         .charts-container {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 30px;
+            gap: 20px;
         }
 
         .chart-wrapper {
             background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
 
         .chart-title {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 600;
             color: #2c3e50;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             text-align: center;
         }
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
         }
 
         .stat-card {
             background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
             text-align: center;
         }
 
         .stat-value {
-            font-size: 1.8rem;
+            font-size: 1.5rem;
             font-weight: bold;
             color: #667eea;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
 
         .stat-amount {
-            font-size: 1.2rem;
+            font-size: 1rem;
             font-weight: 600;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
         }
 
         .stat-label {
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             color: #6c757d;
             font-weight: 500;
         }
@@ -209,7 +210,7 @@
     <div class="container">
         <div class="header">
             <h1>🏨 Hotel Night Audit Revenue Summary</h1>
-            <p>Enter your daily revenue data to generate comprehensive analytics</p>
+            <p id="headerSubtitle">Enter your daily revenue data to generate comprehensive analytics</p>
         </div>
         
         <div class="content">
@@ -414,6 +415,16 @@
             document.getElementById('yearAccountingGrowth').style.color = yearAccountingGrowth >= 0 ? '#28a745' : '#dc3545';
             document.getElementById('yearAccountingGrowthAmount').textContent = `${yearAccountingGrowthAmount >= 0 ? '+' : ''}$${yearAccountingGrowthAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('yearAccountingGrowthAmount').style.color = yearAccountingGrowthAmount >= 0 ? '#28a745' : '#dc3545';
+            
+            // Update header subtitle with current date
+            const currentDate = new Date(data.currentDate);
+            const formattedDate = currentDate.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            document.getElementById('headerSubtitle').innerHTML = `<strong>${formattedDate}</strong>`;
             
             // Hide form and show dashboards
             document.querySelector('.form-section').classList.add('hidden');
