@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hotel Night Audit Revenue Summary</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- XLSX parser for client-side Excel reading -->
+    <!-- Load SheetJS locally to avoid CDN/network blockers -->
+    <script src="vendor/xlsx.full.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -216,10 +219,25 @@
         <div class="content">
             <div class="form-section">
                 <h2>📊 Revenue Data Entry</h2>
-                <form id="revenueForm">
+                <form id="revenueForm" novalidate>
                     <div class="form-group">
                         <label for="currentDate">Current Date:</label>
                         <input type="date" id="currentDate" name="currentDate" required>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 8px; padding: 12px; background: #fff; border: 1px dashed #ced4da; border-radius: 8px;">
+                        <div style="font-weight: 600; color: #2c3e50; margin-bottom: 8px;">Upload Daily Reports (optional)</div>
+                        <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+                            <div>
+                                <label for="roomFile">RVYRSTAT (Management Rooms):</label>
+                                <input type="file" id="roomFile" accept=".xls,.xlsx">
+                            </div>
+                            <div>
+                                <label for="acctFile">RVYACCTG (Accounting - MS Misc Charges):</label>
+                                <input type="file" id="acctFile" accept=".xls,.xlsx">
+                            </div>
+                            <div id="parseStatus" style="font-size: 0.85rem; color: #6c757d;"></div>
+                        </div>
                     </div>
                     
                     <div class="form-group">
@@ -274,7 +292,7 @@
                         <input type="number" id="lastYearCurrentAccountingRevenue" name="lastYearCurrentAccountingRevenue" step="0.01" placeholder="0.00" required>
                     </div>
                     
-                    <button type="submit" class="btn">Generate Revenue Analysis</button>
+                    <button type="submit" class="btn" formnovalidate>Generate Revenue Analysis</button>
                 </form>
             </div>
             
@@ -354,37 +372,286 @@
         document.getElementById('currentDate').valueAsDate = new Date();
         
         let monthlyChart, yearlyChart, monthlyAccountingChart, yearlyAccountingChart;
+
+        // ---- Helpers: Excel parsing ----
+        // Ensure SheetJS is available (tries multiple CDNs if needed)
+        function ensureXLSX() {
+            if (window.XLSX) return Promise.resolve();
+            const urls = [
+                'vendor/xlsx.full.min.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+                'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+                'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
+            ];
+            return new Promise((resolve, reject) => {
+                let i = 0;
+                const tryNext = () => {
+                    if (window.XLSX) return resolve();
+                    if (i >= urls.length) return reject(new Error('XLSX library failed to load'));
+                    const s = document.createElement('script');
+                    s.src = urls[i++];
+                    s.async = true;
+                    s.onload = () => resolve();
+                    s.onerror = () => tryNext();
+                    document.head.appendChild(s);
+                };
+                tryNext();
+            });
+        }
+        function parseCurrencyNumber(val) {
+            if (val == null) return null;
+            if (typeof val === 'number') {
+                return isFinite(val) ? val : null;
+            }
+            if (typeof val === 'string') {
+                const cleaned = val.replace(/[^0-9.\-]/g, '');
+                const num = parseFloat(cleaned);
+                return isNaN(num) ? null : num;
+            }
+            return null;
+        }
+
+        function excelDateNumberToDate(n) {
+            // Excel serial date to JS Date (assumes 1900 date system)
+            try {
+                const epoch = new Date(Date.UTC(1899, 11, 30));
+                const ms = n * 86400000; // days to ms
+                return new Date(epoch.getTime() + ms);
+            } catch { return null; }
+        }
+
+        function aoaFromWorkbook(workbook) {
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            return XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, blankrows: false, defval: '' });
+        }
+
+        function normText(v) {
+            return String(v || '').toUpperCase().replace(/\s+/g, ' ').trim();
+        }
+
+        function findBusinessDate(rows) {
+            for (let i = 0; i < Math.min(rows.length, 30); i++) {
+                const row = rows[i];
+                for (let j = 0; j < row.length; j++) {
+                    const t = normText(row[j]);
+                    if (t.includes('BUSINESS DATE:')) {
+                        // numeric to the right
+                        const val = row[j + 1];
+                        const dt = typeof val === 'number' ? excelDateNumberToDate(val) : null;
+                        if (dt) return dt;
+                    }
+                }
+            }
+            return null;
+        }
+
+        // Parse RVYRSTAT (Management) -> NET REVENUE ROOMS/SUITES row
+        function parseRvyrstat(rows) {
+            let target = null;
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const line = row.map(normText).join(' | ');
+                if (/NET REVENUE\s+ROOMS\s*\/\s*SUITES/.test(line)) {
+                    target = row;
+                    break;
+                }
+            }
+            if (!target) return null;
+            // Columns: [5]=TODAY, [6]=THIS(PTD/MTD), [7]=LAST(PTD/LY MTD), [8]=THIS(YTD), [9]=LAST(LYTD)
+            const nums = [5,6,7,8,9].map(idx => parseCurrencyNumber(target[idx]));
+            if (nums.some(v => v == null)) return null;
+            return {
+                todayRevenue: nums[0],
+                monthCurrentRevenue: nums[1],
+                lastYearMonthRevenue: nums[2],
+                yearCurrentRevenue: nums[3],
+                lastYearCurrentRevenue: nums[4]
+            };
+        }
+
+        // Parse RVYACCTG (Accounting) -> MS MISCELLANEOUS CHARGES section, INCOME block, NET REVENUE row
+        function parseRvyacctgMisc(rows) {
+            // Find start of MS section
+            let start = -1;
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const t0 = normText(row[0] ?? '');
+                const line = row.map(normText).join(' | ');
+                if (t0 === 'MS' || /\bMISCELLANEOUS\s+CHARGES\b/.test(line) || /\bMISC\s+CHARGES\b/.test(line)) {
+                    start = i;
+                    break;
+                }
+            }
+            if (start === -1) return null;
+            // From start, find an INCOME row to anchor the block
+            let incomeIdx = -1;
+            for (let i = start; i < Math.min(rows.length, start + 200); i++) {
+                const row = rows[i];
+                const line = row.map(normText).join(' | ');
+                if (/^INCOME$/.test(normText(row[0] || '')) || /\bINCOME\b/.test(line)) {
+                    incomeIdx = i;
+                    break;
+                }
+                // stop if we hit another section header (two-letter code in col 0)
+                const code = normText(row[0] || '');
+                if (code.length === 2 && /^[A-Z]{2}$/.test(code) && i > start) break;
+            }
+            if (incomeIdx === -1) return null;
+            // Search for NET REVENUE row after income until next section code
+            let end = rows.length;
+            for (let i = incomeIdx + 1; i < rows.length; i++) {
+                const code = normText(rows[i][0] || '');
+                if (code.length === 2 && /^[A-Z]{2}$/.test(code)) { end = i; break; }
+            }
+            let target = null;
+            for (let i = incomeIdx + 1; i < end; i++) {
+                const row = rows[i];
+                if (row.some(c => normText(c).startsWith('NET REVENUE'))) {
+                    target = row; break;
+                }
+            }
+            if (!target) return null;
+            const nums = [5,6,7,8,9].map(idx => parseCurrencyNumber(target[idx]));
+            // Allow zeros and missing LY; coerce null to 0 here
+            const [today, mtd, ly_mtd, ytd, ly_ytd] = nums.map(v => (v == null ? 0 : v));
+            return {
+                todayAccountingRevenue: today,
+                monthCurrentAccountingRevenue: mtd,
+                lastYearMonthAccountingRevenue: ly_mtd,
+                yearCurrentAccountingRevenue: ytd,
+                lastYearCurrentAccountingRevenue: ly_ytd
+            };
+        }
+
+        function setIfPresent(map) {
+            if (!map) return [];
+            const applied = [];
+            for (const [id, key] of [
+                ['todayRevenue', 'todayRevenue'],
+                ['monthCurrentRevenue', 'monthCurrentRevenue'],
+                ['lastYearMonthRevenue', 'lastYearMonthRevenue'],
+                ['yearCurrentRevenue', 'yearCurrentRevenue'],
+                ['lastYearCurrentRevenue', 'lastYearCurrentRevenue'],
+                ['todayAccountingRevenue', 'todayAccountingRevenue'],
+                ['monthCurrentAccountingRevenue', 'monthCurrentAccountingRevenue'],
+                ['lastYearMonthAccountingRevenue', 'lastYearMonthAccountingRevenue'],
+                ['yearCurrentAccountingRevenue', 'yearCurrentAccountingRevenue'],
+                ['lastYearCurrentAccountingRevenue', 'lastYearCurrentAccountingRevenue']
+            ]) {
+                if (key in map && typeof map[key] === 'number') {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.value = map[key].toFixed(2);
+                        applied.push(id);
+                    }
+                }
+            }
+            return applied;
+        }
+
+        function appendStatus(msg, isError=false) {
+            const box = document.getElementById('parseStatus');
+            if (!box) return;
+            const line = document.createElement('div');
+            line.textContent = msg;
+            line.style.color = isError ? '#dc3545' : '#6c757d';
+            box.appendChild(line);
+        }
+
+        function clearStatus() {
+            const box = document.getElementById('parseStatus');
+            if (box) box.innerHTML = '';
+        }
+
+        async function handleFileInput(file, kind) {
+            if (!file) return;
+            clearStatus();
+            try {
+                // Lazy-load XLSX if it isn't ready yet
+                await ensureXLSX();
+                const buf = await file.arrayBuffer();
+                const wb = XLSX.read(buf, { type: 'array' });
+                const rows = aoaFromWorkbook(wb);
+
+                // Try to use business date if present
+                const bDate = findBusinessDate(rows);
+                if (bDate) {
+                    const el = document.getElementById('currentDate');
+                    if (el) {
+                        // set in local timezone as YYYY-MM-DD
+                        const yyyy = bDate.getFullYear();
+                        const mm = String(bDate.getMonth() + 1).padStart(2, '0');
+                        const dd = String(bDate.getDate()).padStart(2, '0');
+                        el.value = `${yyyy}-${mm}-${dd}`;
+                    }
+                }
+
+                let map = null;
+                if (kind === 'room') {
+                    map = parseRvyrstat(rows);
+                } else if (kind === 'acct') {
+                    map = parseRvyacctgMisc(rows);
+                }
+
+                if (!map) {
+                    appendStatus(`Could not locate expected rows in ${file.name}.`, true);
+                    return;
+                }
+
+                const applied = setIfPresent(map);
+                appendStatus(`Loaded ${file.name}: populated ${applied.length} field(s).`);
+            } catch (err) {
+                console.error(err);
+                appendStatus(`Failed to parse ${file?.name || 'file'}: ${err.message || err}`, true);
+            }
+        }
+
+        // Wire up file inputs
+        document.getElementById('roomFile')?.addEventListener('change', (e) => {
+            const f = e.target.files?.[0];
+            handleFileInput(f, 'room');
+        });
+        document.getElementById('acctFile')?.addEventListener('change', (e) => {
+            const f = e.target.files?.[0];
+            handleFileInput(f, 'acct');
+        });
         
         document.getElementById('revenueForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
             // Get form data
             const formData = new FormData(this);
+            const numOr0 = (v) => {
+                const n = parseFloat(v);
+                return Number.isFinite(n) ? n : 0;
+            };
             const data = {
                 currentDate: formData.get('currentDate'),
-                todayRevenue: parseFloat(formData.get('todayRevenue')),
-                monthCurrentRevenue: parseFloat(formData.get('monthCurrentRevenue')),
-                lastYearMonthRevenue: parseFloat(formData.get('lastYearMonthRevenue')),
-                yearCurrentRevenue: parseFloat(formData.get('yearCurrentRevenue')),
-                lastYearCurrentRevenue: parseFloat(formData.get('lastYearCurrentRevenue')),
-                todayAccountingRevenue: parseFloat(formData.get('todayAccountingRevenue')),
-                monthCurrentAccountingRevenue: parseFloat(formData.get('monthCurrentAccountingRevenue')),
-                lastYearMonthAccountingRevenue: parseFloat(formData.get('lastYearMonthAccountingRevenue')),
-                yearCurrentAccountingRevenue: parseFloat(formData.get('yearCurrentAccountingRevenue')),
-                lastYearCurrentAccountingRevenue: parseFloat(formData.get('lastYearCurrentAccountingRevenue'))
+                todayRevenue: numOr0(formData.get('todayRevenue')),
+                monthCurrentRevenue: numOr0(formData.get('monthCurrentRevenue')),
+                lastYearMonthRevenue: numOr0(formData.get('lastYearMonthRevenue')),
+                yearCurrentRevenue: numOr0(formData.get('yearCurrentRevenue')),
+                lastYearCurrentRevenue: numOr0(formData.get('lastYearCurrentRevenue')),
+                todayAccountingRevenue: numOr0(formData.get('todayAccountingRevenue')),
+                monthCurrentAccountingRevenue: numOr0(formData.get('monthCurrentAccountingRevenue')),
+                lastYearMonthAccountingRevenue: numOr0(formData.get('lastYearMonthAccountingRevenue')),
+                yearCurrentAccountingRevenue: numOr0(formData.get('yearCurrentAccountingRevenue')),
+                lastYearCurrentAccountingRevenue: numOr0(formData.get('lastYearCurrentAccountingRevenue'))
             };
             
             // Calculate growth percentages and amounts for room revenue
             const monthGrowthAmount = data.monthCurrentRevenue - data.lastYearMonthRevenue;
-            const monthGrowth = ((monthGrowthAmount) / data.lastYearMonthRevenue * 100).toFixed(1);
+            const safeDiv = (num, den) => (den ? num / den : 0);
+            const monthGrowth = (safeDiv(monthGrowthAmount, data.lastYearMonthRevenue) * 100).toFixed(1);
             const yearGrowthAmount = data.yearCurrentRevenue - data.lastYearCurrentRevenue;
-            const yearGrowth = ((yearGrowthAmount) / data.lastYearCurrentRevenue * 100).toFixed(1);
+            const yearGrowth = (safeDiv(yearGrowthAmount, data.lastYearCurrentRevenue) * 100).toFixed(1);
             
             // Calculate growth percentages and amounts for accounting revenue
             const monthAccountingGrowthAmount = data.monthCurrentAccountingRevenue - data.lastYearMonthAccountingRevenue;
-            const monthAccountingGrowth = ((monthAccountingGrowthAmount) / data.lastYearMonthAccountingRevenue * 100).toFixed(1);
+            const monthAccountingGrowth = (safeDiv(monthAccountingGrowthAmount, data.lastYearMonthAccountingRevenue) * 100).toFixed(1);
             const yearAccountingGrowthAmount = data.yearCurrentAccountingRevenue - data.lastYearCurrentAccountingRevenue;
-            const yearAccountingGrowth = ((yearAccountingGrowthAmount) / data.lastYearCurrentAccountingRevenue * 100).toFixed(1);
+            const yearAccountingGrowth = (safeDiv(yearAccountingGrowthAmount, data.lastYearCurrentAccountingRevenue) * 100).toFixed(1);
             
             // Update stats display
             document.getElementById('todayRevenueDisplay').textContent = `$${data.todayRevenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
@@ -416,15 +683,20 @@
             document.getElementById('yearAccountingGrowthAmount').textContent = `${yearAccountingGrowthAmount >= 0 ? '+' : ''}$${yearAccountingGrowthAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('yearAccountingGrowthAmount').style.color = yearAccountingGrowthAmount >= 0 ? '#28a745' : '#dc3545';
             
-            // Update header subtitle with current date
-            const currentDate = new Date(data.currentDate);
-            const formattedDate = currentDate.toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            });
-            document.getElementById('headerSubtitle').innerHTML = `<strong>${formattedDate}</strong>`;
+            // Update header subtitle with current date (if valid)
+            try {
+                const currentDateStr = data.currentDate;
+                const currentDate = currentDateStr ? new Date(currentDateStr) : null;
+                if (currentDate && !isNaN(currentDate.getTime())) {
+                    const formattedDate = currentDate.toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+                    document.getElementById('headerSubtitle').innerHTML = `<strong>${formattedDate}</strong>`;
+                }
+            } catch {}
             
             // Hide form and show dashboards
             document.querySelector('.form-section').classList.add('hidden');
@@ -608,3 +880,4 @@
     </script>
 </body>
 </html>
+
